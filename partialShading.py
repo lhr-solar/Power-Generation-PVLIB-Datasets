@@ -64,6 +64,28 @@ def plot_curves(dfs, labels, title):
     fig.tight_layout()
     return axes
 
+def plot_pv_curves(dfs, labels, title):
+    """
+    Plot the Power-Voltage (PV) curve.
+    Args:
+    - dfs: list of pandas DataFrames containing 'i' (current) and 'v' (voltage) columns.
+    - labels: list of labels for the curves.
+    - title: title of the plot.
+    """
+    fig, axes = plt.subplots(sharey=True, figsize=(5, 3))
+    for df, label in zip(dfs, labels):
+        power = df['i'] * df['v']  # Calculate power
+        df['p'] = power            # Add power column to the dataframe (optional, for debugging or future use)
+        axes.plot(df['v'], power, label=label)
+        axes.set_xlim([0, df['v'].max()*1.5])
+    
+    axes.set_ylabel('power [W]')
+    axes.set_xlabel('voltage [V]')
+    fig.suptitle(title)
+    fig.tight_layout()
+    axes.legend()
+    return axes
+
 cell_curve_full_sun = sim_full_curve(cell_parameters, Geff=1000, Tcell=25)
 cell_curve_shaded = sim_full_curve(cell_parameters, Geff=200, Tcell=25)
 ax = plot_curves([cell_curve_full_sun, cell_curve_shaded],
@@ -124,7 +146,6 @@ def simulate_module(cell_params,
         Tcell)
 
     include_partial_cell = (shaded_fraction < 1)
-    # understand what this does
     half_substring_curves = (
         [df_lit] * (nrow - nrow_full_shade - 1)
         + ([df_partial] if include_partial_cell else [])  # noqa: W503
@@ -136,7 +157,7 @@ def simulate_module(cell_params,
     substring_curve['v'] = substring_curve['v'].clip(lower=-0.5)
     # no need to interpolate since we're just scaling voltage directly:
     substring_curve['v'] *= strings
-    return substring_curve
+    return substring_curve 
     
 kwargs = {
     'cell_params' : cell_parameters,
@@ -146,8 +167,11 @@ kwargs = {
 }
 module_curve_full_sun = simulate_module(shaded_fraction=0, **kwargs)
 module_curve_shaded = simulate_module(shaded_fraction=0.1, **kwargs)
-ax = plot_curves([module_curve_full_sun, module_curve_shaded],
-                 labels=['Full Sun', 'Shaded'],
+ax = plot_curves([module_curve_full_sun, module_curve_shaded, combine_series([module_curve_full_sun, module_curve_shaded])],
+                 labels=['Full Sun', 'Shaded', 'Mix'],
+                 title='Module-level forward-biased IV curves')
+ax2 = plot_pv_curves([module_curve_full_sun, module_curve_shaded, combine_series([module_curve_full_sun, module_curve_shaded])],
+                 labels=['Full Sun', 'Shaded', 'Mix'],
                  title='Module-level forward-biased IV curves')
 
 plt.show()
